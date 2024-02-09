@@ -1,0 +1,5 @@
+original_word,renamed_word
+github.com/d/d1/server,github.com/n/n1/server
+github.com/d/d1/message,github.com/n/n1/proto
+github.com/d/d1/cli,github.com/n/n1/cli
+_d_,_n_1_

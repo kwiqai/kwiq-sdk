@@ -1,0 +1,4 @@
+github.com/n/n1/server
+github.com/n/n1/proto
+github.com/n/n1/cli
+_n_1_
