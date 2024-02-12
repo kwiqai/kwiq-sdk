@@ -1,3 +1,5 @@
+import shutil
+
 import os
 from pathlib import Path
 
@@ -42,7 +44,7 @@ def setup_git_rep(merge_dir: Path, temp_dir: Path, repo_info: RepoInfo, repo_key
 
     # Git add and commit
     RunCommand().execute(command='git add .')
-    RunCommand().execute(command=f'git commit -m "{repo_key} version"')
+    RunCommand().execute(command=f'git commit --allow-empty -m "{repo_key} version"')
 
     # Clean up temporary clone
     # shutil.rmtree(temp_clone_dir)
@@ -73,6 +75,7 @@ class SetupThreeWayMerge(Task):
     def fn(self, data: InputDataModel):
         # Inputs
         base_dir = data.output_dir
+
         merge_dir = (base_dir / "merge_dir").resolve()
         temp_dir = (base_dir / "temp_dir").resolve()
 

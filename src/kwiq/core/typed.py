@@ -1,3 +1,4 @@
+import pydantic_core
 from pathlib import Path
 
 import sys
@@ -52,6 +53,7 @@ class Typed(ABC, BaseModel):
             if name == 'self':
                 continue
 
+            is_optional = False
             param_type = param.annotation
             if param_type is inspect.Parameter.empty:
                 param_type = None
@@ -61,6 +63,7 @@ class Typed(ABC, BaseModel):
                 if origin is Union and type(None) in args:
                     # This is an Optional, extract the first non-None type
                     param_type = next((arg for arg in args if arg is not type(None)), None)
+                    is_optional = True
 
             if name in kwargs:
                 arg = kwargs[name]
@@ -79,23 +82,27 @@ class Typed(ABC, BaseModel):
                     raise ValidationError(f"Parameter validation failed for '{name}': {str(e)}")
             elif param_type is not None:
                 # attempt to create from kwargs
-                try:
+
                     if issubclass(param_type, (int, float, str, bool, list, dict, tuple, set, Path)):
                         if param.default is not inspect.Parameter.empty:
                             fn_args[name] = param.default
+                        elif is_optional:
+                            fn_args[name] = None
                         else:
                             raise ValueError(f"Missing required parameter: '{name}'")
-                    if issubclass(param_type, BaseModel):
+                    elif issubclass(param_type, BaseModel):
                         fn_args[name] = param_type(**kwargs)
                     else:
                         # Validate and convert parameter types using Pydantic's parse_obj_as
-                        print("Parsing obj as...")
-                        fn_args[name] = parse_obj_as(param_type, kwargs)
-                except ValidationError as _:
-                    if param.default is not inspect.Parameter.empty:
-                        fn_args[name] = param.default
-                    else:
-                        raise ValueError(f"Missing required parameter: '{name}'")
+                        try:
+                            fn_args[name] = parse_obj_as(param_type, kwargs)
+                        except pydantic_core.ValidationError as _:
+                            if param.default is not inspect.Parameter.empty:
+                                fn_args[name] = param.default
+                            elif is_optional:
+                                fn_args[name] = None
+                            else:
+                                raise ValueError(f"Missing required parameter: '{name}'")
             elif param.default is not inspect.Parameter.empty:
                 fn_args[name] = param.default
             else:
@@ -156,13 +163,18 @@ class Typed(ABC, BaseModel):
             else:
                 origin = get_origin(field_type)
                 args = get_args(field_type)
+                # print(f"origin: {origin}, args: {list(args)}")
                 if origin is Union and type(None) in args:
                     # This is an Optional, extract the first non-None type
                     field_type = next((arg for arg in args if arg is not type(None)), None)
 
+            # print(f"field_name: {field_name} and field_type: {field_type}")
+
             if field_type is None:
                 errors.append(f"ERROR: fn param '{field_name}' has no type. Not allowed")
-            if issubclass(field_type, (int, float, str, bool, list, dict, tuple, set, Path)):
+            elif isinstance(field_type, Callable):
+                schema[field_name] = {"type": field_type.__name__, "default": default_value}
+            elif issubclass(field_type, (int, float, str, bool, list, dict, tuple, set, Path)):
                 schema[field_name] = {"type": field_type.__name__, "default": default_value}
             elif issubclass(field_type, BaseModel):
                 child_schema, child_errors = Typed.get_pydantic_model_schema(field_type)

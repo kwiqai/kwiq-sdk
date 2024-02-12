@@ -70,7 +70,12 @@ class App(BaseModel):
         if args.__contains__('config') and args.config:
             # Load configuration from YAML
             with open(args.config, 'r') as f:
-                config = yaml.safe_load(f)
+                loaded_config = yaml.safe_load(f)
+                config = loaded_config.get(args.flow, None)
+                if config is None:
+                    print(f"************ WARNING: no config key found for flow ({args.flow}), "
+                          f"using full config ************")
+                    config = loaded_config
 
         # Override YAML config with command-line overrides
         if extra_args:
